@@ -55,6 +55,7 @@ export async function transferSharedItem(req: express.Request, res: express.Resp
         return res.sendStatus(500)
     }
 
+    logger.info(`User(${client.email}) transferred a shared item ${id}`)
     res.sendStatus(200)
 }
 

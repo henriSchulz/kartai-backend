@@ -8,13 +8,21 @@ import {Field} from "./types/dbmodel/Field";
 import {generateModelId} from "./utils";
 
 export default class CardGenerationService {
+
+    static formatInputString(inputText: string): string {
+        return inputText.replaceAll("\n", " ")
+    }
+
     static async generateCards(clientId: string, cardTypeId: string, deckId: string, inputText: string, gptVersion: string, openAIKey: string, prompt: string):
         Promise<{ cards: Card[], fieldContents: FieldContent[] } | null> {
 
         try {
             const response = await axios.post("https://api.openai.com/v1/chat/completions", {
                 model: gptVersion,
-                messages: [{role: "user", content: inputText}, {role: "system", content: prompt}],
+                messages: [{role: "user", content: this.formatInputString(inputText)}, {
+                    role: "system",
+                    content: prompt
+                }],
             }, {
                 headers: {
                     "Content-Type": "application/json", "Authorization": "Bearer " + openAIKey
@@ -66,20 +74,25 @@ export default class CardGenerationService {
                 }
                 if (isValidCard) {
                     cards.push(card)
-
                 }
             }
 
             if (cards.length === 0) {
+                const client = await app.admin.auth().getUser(clientId)
+                logger.error(`User(${client.email}) Failed to generate cards: No cards generated`)
                 return null
             }
 
             if (fieldContents.length !== cards.length * fields.length) {
+                const client = await app.admin.auth().getUser(clientId)
+                logger.error(`User(${client.email}) Failed to generate cards: Field contents length does not match`)
                 return null
             }
 
             return {cards, fieldContents}
         } catch (e) {
+            const client = await app.admin.auth().getUser(clientId)
+            logger.error(`User(${client.email}) Failed to generate cards: ${e}`)
             return null
 
         }

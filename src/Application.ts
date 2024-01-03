@@ -42,6 +42,7 @@ import {extractTextFromImage, extractTextFromPDF, generateCards, importFromCraft
 import fileUpload from "express-fileupload";
 
 
+
 export type Stores = {
     directories: DirectoryEntityStore,
 
@@ -67,7 +68,7 @@ export class Application {
 
     public readonly database: Database;
     private readonly app: express.Application;
-    public readonly production: boolean = process.env.NODE_ENV === "production";
+    public readonly production: boolean = false
     private readonly port: number = process.env.PORT ? Number(process.env.PORT) : (this.production ? 443 : 4000)
     public readonly stores: Stores
     public readonly admin: admin.app.App
@@ -96,7 +97,7 @@ export class Application {
     private initializeBasicStoreRoutes() {
         for (const store of Object.values(this.stores)) {
             //responds with an array of all entities {"entities": []}
-            if (store.id !== "sharedItems") this.app.get(`/${store.id}`, getBasicAllEntitiesFunction<Models>(store))
+            if (store.id !== "sharedItems") this.app.get(`/${store.id}`, getAuthMiddleware(this.admin), getBasicAllEntitiesFunction<Models>(store))
             //accepts an array of entities to add {"entities": []}
             this.app.post(`/${store.id}/add`, getAuthMiddleware(this.admin), getBasicAddFunction<Models>(store))
             //accepts an array of entities to update {"entities": []}
@@ -145,7 +146,7 @@ export class Application {
 
         if (!this.production) {
             this.app.listen(this.port, () => {
-                logger.info(`Listening on port ${this.port}`);
+                logger.info(`Listening ${this.production ? "https://api.kartai.de:" : "http://localhost:"}${this.port}.`);
             });
         } else {
             const sslServer = https.createServer({
@@ -154,7 +155,7 @@ export class Application {
             }, this.app)
 
             sslServer.listen(this.port, () => {
-                logger.info(`Listening on port ${this.port}.`);
+                logger.info(`Listening ${this.production ? "https://api.kartai.de:" : "http://localhost:"}${this.port}.`);
             });
         }
 

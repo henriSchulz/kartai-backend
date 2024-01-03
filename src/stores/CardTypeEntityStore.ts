@@ -6,7 +6,7 @@ import {OmittedStoreSchema} from "../types/StoreSchema";
 export class CardTypeEntityStore extends EntityStore<CardType> {
 
 
-    public static DEFAULT_CARD_TYPE_PREFIXES = ["dct1"]
+    public static DEFAULT_CARD_TYPE_PREFIXES = ["dct1", "dct2", "dct3"]
 
     constructor(database: Database, callback?: () => void) {
         const storeSchema: OmittedStoreSchema<CardType> = {

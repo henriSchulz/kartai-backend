@@ -194,10 +194,10 @@ export class SharedItemEntityStore extends EntityStore<SharedItem> {
         if (directories.length !== 0) {
             for (const directory of directories) {
                 const newDirectoryId = generateModelId()
-                itemsToImport.directories.push({...directory, id: newDirectoryId, clientId, isShared: 0})
+                itemsToImport.directories.push({...directory, id: newDirectoryId, clientId, isShared: 1})
                 for (const deck of decks.filter(e => e.parentId === directory.id)) {
                     const newDeckId = generateModelId()
-                    itemsToImport.decks.push({...deck, id: newDeckId, parentId: newDirectoryId, isShared: 0})
+                    itemsToImport.decks.push({...deck, id: newDeckId, parentId: newDirectoryId, isShared: 1})
                     for (const card of cards.filter(e => e.deckId === deck.id)) {
                         const newCardId = generateModelId()
                         itemsToImport.cards.push({...card, id: newCardId, deckId: newDeckId})
@@ -215,7 +215,7 @@ export class SharedItemEntityStore extends EntityStore<SharedItem> {
         } else {
             for (const deck of decks) {
                 const newDeckId = generateModelId()
-                itemsToImport.decks.push({...deck, id: newDeckId, parentId: null, isShared: 0})
+                itemsToImport.decks.push({...deck, id: newDeckId, parentId: null, isShared: 1})
                 for (const card of cards.filter(e => e.deckId === deck.id)) {
                     const newCardId = generateModelId()
                     itemsToImport.cards.push({
@@ -238,15 +238,23 @@ export class SharedItemEntityStore extends EntityStore<SharedItem> {
         }
 
         for (const cardType of cardTypes) {
-            let newCardTypeName = null
+            let newCardTypeId = generateModelId()
+            let isDefaultCardType = false
             for (const prefix of CardTypeEntityStore.DEFAULT_CARD_TYPE_PREFIXES) {
                 if (cardType.id.startsWith(prefix)) {
-                    newCardTypeName = cardType.name + ` (${sharedItem.clientId.slice(0, 8)})`
+                    isDefaultCardType = true
+                    const [cardTypes, error] = await app.stores.cardTypes.getAll(clientId)
+
+                    if (error) return error
+
+                    const cardType = cardTypes.find(t => t.id.startsWith(prefix))
+
+                    newCardTypeId = cardType!.id
+
                 }
             }
 
-            const newCardTypeId = generateModelId()
-            itemsToImport.cardTypes.push({...cardType, id: newCardTypeId, name: newCardTypeName ?? cardType.name})
+            if (!isDefaultCardType) itemsToImport.cardTypes.push({...cardType, id: newCardTypeId})
 
             for (const card of itemsToImport.cards.filter(e => e.cardTypeId === cardType.id)) {
                 const updatedCard = {
@@ -256,25 +264,46 @@ export class SharedItemEntityStore extends EntityStore<SharedItem> {
                 itemsToImportFinal.cards.push(updatedCard)
             }
 
-            for (const field of fields.filter(e => e.cardTypeId === cardType.id)) {
-                const newFieldId = generateModelId()
-                itemsToImport.fields.push({...field, id: newFieldId, cardTypeId: newCardTypeId})
-                for (const fieldContent of itemsToImport.fieldContents.filter(e => e.fieldId === field.id)) {
-                    const updatedFieldContent = {
-                        ...fieldContent,
-                        fieldId: newFieldId
-                    }
-                    itemsToImportFinal.fieldContents.push(updatedFieldContent)
-                }
 
+            if (!isDefaultCardType) {
+                for (const field of fields.filter(e => e.cardTypeId === cardType.id)) {
+                    const newFieldId = generateModelId()
+                    itemsToImport.fields.push({...field, id: newFieldId, cardTypeId: newCardTypeId})
+                    for (const fieldContent of itemsToImport.fieldContents.filter(e => e.fieldId === field.id)) {
+                        const updatedFieldContent = {
+                            ...fieldContent,
+                            fieldId: newFieldId
+                        }
+                        itemsToImportFinal.fieldContents.push(updatedFieldContent)
+                    }
+                }
+            } else {
+                let index = 0
+                const [defaultCardTypeFields, error] = await app.stores.fields.getAllBy(clientId, "cardTypeId", newCardTypeId)
+                if (error) return error
+                for (const field of fields.filter(e => e.cardTypeId === cardType.id)) {
+                    const newFieldId = defaultCardTypeFields[index].id
+                    for (const fieldContent of itemsToImport.fieldContents.filter(e => e.fieldId === field.id)) {
+                        const updatedFieldContent = {
+                            ...fieldContent,
+                            fieldId: newFieldId
+                        }
+                        itemsToImportFinal.fieldContents.push(updatedFieldContent)
+                    }
+                    index++
+                }
             }
-            for (const cardTypeVariant of cardTypeVariants.filter(e => e.cardTypeId === cardType.id)) {
-                const newCardTypeVariantId = generateModelId()
-                itemsToImport.cardTypeVariants.push({
-                    ...cardTypeVariant,
-                    id: newCardTypeVariantId,
-                    cardTypeId: newCardTypeId
-                })
+
+
+            if (!isDefaultCardType) {
+                for (const cardTypeVariant of cardTypeVariants.filter(e => e.cardTypeId === cardType.id)) {
+                    const newCardTypeVariantId = generateModelId()
+                    itemsToImport.cardTypeVariants.push({
+                        ...cardTypeVariant,
+                        id: newCardTypeVariantId,
+                        cardTypeId: newCardTypeId
+                    })
+                }
             }
         }
 
@@ -306,7 +335,8 @@ export class SharedItemEntityStore extends EntityStore<SharedItem> {
 
     async deleteBySharedItemId(sharedItemId: string): Promise<EntityStoreError | null> {
         return new Promise((resolve) => {
-            this.database.run(`DELETE FROM ${this.id}
+            this.database.run(`DELETE
+                               FROM ${this.id}
                                WHERE sharedItemId = ?`, [sharedItemId], (err) => {
                 if (err) {
                     resolve(new EntityStoreError(err.message, true))

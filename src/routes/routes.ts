@@ -64,17 +64,22 @@ export async function generateCards(req: express.Request, res: express.Response)
 
 
     let chunks: string[] = chunkSubstr(inputText, 2000)
+    let i = 1
     for (const chunk of chunks) {
-        logger.info(`User(${client.email}) sending chunk to OpenAI API`)
-        const result = await CardGenerationService.generateCards(client.id, cardTypeId, deckId, inputText, gptVersion, openAIKey, prompt)
-
-        if (!result) return res.json({error: "Failed to generate cards"})
+        logger.info(`User(${client.email}) sending chunk to OpenAI API (${i} of ${chunks.length})`)
+        const result = await CardGenerationService.generateCards(client.id, cardTypeId, deckId, chunk, gptVersion, openAIKey, prompt)
+        if (!result) {
+            logger.error(`User(${client.email}) failed to generate cards in chunk ${i} of ${chunks.length}`)
+            continue
+        }
 
         const {cards: generatedCards, fieldContents: generatedFieldContents} = result
         cards.push(...generatedCards)
         fieldContents.push(...generatedFieldContents)
+        i++;
     }
 
+    if (cards.length === 0) return res.json({error: "Failed to generate cards: No cards generated"})
 
     res.json({cards, fieldContents})
 }
@@ -96,9 +101,9 @@ export async function importFromCraftTable(req: express.Request, res: express.Re
 
     if (!app.production) {
         try {
-            const browser = await puppeteer.launch({headless: true});
+            const browser = await puppeteer.launch({headless: "new"});
             const page = await browser.newPage();
-            await page.goto(craftUrl, {waitUntil: "load"});
+            await page.goto(craftUrl, {waitUntil: "networkidle0"});
 
             contentList = (await page.evaluate(() => {
                 const els = Array.from(document.body.querySelectorAll("div"));
@@ -123,23 +128,26 @@ export async function importFromCraftTable(req: express.Request, res: express.Re
             }) as string[])
             if (contentList) contentList = contentList.filter(el => el.length > 0)
         } catch (e) {
+            logger.error(`User(${client.email}) failed to parse table: ${e}`)
             return res.json({error: "Failed to parse table"})
         }
     } else {
         try {
             const browser = await puppeteer.launch({
-                //headless: false,
+                headless: "new",
                 // executablePath: '/usr/bin/chromium-browser',
                 args: ['--disable-setuid-sandbox', '--no-sandbox']
             });
             const page = await browser.newPage();
-            await page.goto(craftUrl, {waitUntil: 'load', timeout: 0});
+            await page.goto(craftUrl, {waitUntil: "networkidle0"});
+            logger.info(await page.content(),)
             contentList = (await page.evaluate(() => {
                 const els = Array.from(document.body.querySelectorAll("div"));
 
 
                 const documentBodyDiv = els.find(el => el.getAttribute("data-page-section") === "page-body-div")
                 // .filter(el => el.children.length > 1)
+
 
                 if (!documentBodyDiv) return null
 
@@ -157,11 +165,15 @@ export async function importFromCraftTable(req: express.Request, res: express.Re
             }) as string[])
             if (contentList) contentList = contentList.filter(el => el.length > 0)
         } catch (e) {
+            logger.error(`User(${client.email}) failed to parse table: ${e}`)
             return res.json({error: "Failed to parse table"})
         }
 
     }
-    if (contentList === null) return res.json({error: "Failed to parse table"})
+    if (contentList === null) {
+        logger.error(`User(${client.email}) failed to parse table: contentList is null`)
+        return res.json({error: "Failed to parse table"})
+    }
 
 
     let currentRow: string[] = []
