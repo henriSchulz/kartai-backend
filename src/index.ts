@@ -9,7 +9,7 @@ export const app = new Application(
     express(),
     admin.initializeApp({
         credential: admin.credential.cert(
-            require("./keys/kartai-v2-firebase-adminsdk-p1b9o-402f4bd74c.json")
+            require("./keys/credentials.json")
         )
     })
 )

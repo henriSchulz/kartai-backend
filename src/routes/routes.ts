@@ -9,6 +9,7 @@ import {app} from "../index";
 import puppeteer from "puppeteer";
 import {chunkSubstr} from "../utils";
 import {logger} from "../logger";
+import path from "path";
 
 export async function extractTextFromPDF(req: express.Request, res: express.Response) {
     if (!req.files) return res.status(422).json({error: "No file uploaded"})
@@ -35,6 +36,8 @@ export async function extractTextFromImage(req: express.Request, res: express.Re
     res.json({text})
 
 }
+
+
 
 
 export async function generateCards(req: express.Request, res: express.Response) {
@@ -140,7 +143,6 @@ export async function importFromCraftTable(req: express.Request, res: express.Re
             });
             const page = await browser.newPage();
             await page.goto(craftUrl, {waitUntil: "networkidle0"});
-            logger.info(await page.content(),)
             contentList = (await page.evaluate(() => {
                 const els = Array.from(document.body.querySelectorAll("div"));
 
@@ -151,11 +153,11 @@ export async function importFromCraftTable(req: express.Request, res: express.Re
 
                 if (!documentBodyDiv) return null
 
-                const table = Array.from(documentBodyDiv.children).find(el => el.classList.contains("sc-giadOv"))
+                const table = Array.from(documentBodyDiv.children).find(el => el.classList.contains("sc-fONwsr"))
 
                 if (!table) return null
 
-                const tableContent = Array.from(table.querySelectorAll("div")).find(el => el.classList.contains("sc-bAeIUo"))
+                const tableContent = Array.from(table.querySelectorAll("div")).find(el => el.classList.contains("sc-iujRgT"))
 
 
                 if (!tableContent) return null
@@ -191,4 +193,12 @@ export async function importFromCraftTable(req: express.Request, res: express.Re
 
 
     res.json({table: resultTable})
+}
+
+export async function windowsDownload(req: express.Request, res: express.Response) {
+    return res.sendFile("app/KartAI Setup 1.0.0.exe", {root: path.join(__dirname, '..')});
+}
+
+export async function macDownload(req: express.Request, res: express.Response) {
+    return res.sendFile("app/KartAI-1.0.0-arm64.dmg", {root: path.join(__dirname, '..')});
 }

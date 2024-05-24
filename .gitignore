@@ -10,3 +10,4 @@ src/keys
 src/data/fc_data.db
 src/logs/latest.log
 .idea
+/dist

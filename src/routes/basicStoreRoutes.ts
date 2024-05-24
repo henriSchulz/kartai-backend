@@ -80,11 +80,10 @@ export function getBasicAddFunction<T extends BaseModel>(store: EntityStore<T>) 
         try {
             const entities = req.body["entities"];
             if (!Array.isArray(entities)) return res.status(422).json({error: `Invalid request Body. Object 'entities' is not typeof ${store.id}[]`})
-
             for (const entity of entities) {
                 const error = await store.add(client.id, entity);
                 if (error) {
-                    if (error.serverError) logger.error(error)
+                    if (error.serverError) logger.error(error.message + ` (in ${store.id}.add())`)
                     return res.status(error.serverError ? 500 : 422).json({error: error.message})
                 }
             }

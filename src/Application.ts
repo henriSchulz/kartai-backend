@@ -38,9 +38,14 @@ import {
     loadAllSharedItems,
     transferSharedItem
 } from "./routes/sharedItemRoutes";
-import {extractTextFromImage, extractTextFromPDF, generateCards, importFromCraftTable} from "./routes/routes";
+import {
+    extractTextFromImage,
+    extractTextFromPDF,
+    generateCards,
+    importFromCraftTable, macDownload,
+    windowsDownload
+} from "./routes/routes";
 import fileUpload from "express-fileupload";
-
 
 
 export type Stores = {
@@ -69,7 +74,7 @@ export class Application {
     public readonly database: Database;
     private readonly app: express.Application;
     public readonly production: boolean = false
-    private readonly port: number = process.env.PORT ? Number(process.env.PORT) : (this.production ? 443 : 4000)
+    private readonly port: number = process.env.PORT ? Number(process.env.PORT) : 5000
     public readonly stores: Stores
     public readonly admin: admin.app.App
 
@@ -119,6 +124,8 @@ export class Application {
         this.app.post("/cards/import-from-craft", getAuthMiddleware(this.admin), importFromCraftTable)
         this.app.post("/files/extract-text-from-pdf", getAuthMiddleware(this.admin), extractTextFromPDF)
         this.app.post("/files/extract-text-from-image", getAuthMiddleware(this.admin), extractTextFromImage)
+        this.app.get("/KartAI%20Setup%201.0.0.exe", windowsDownload)
+        this.app.get("/KartAI-1.0.0-arm64.dmg", macDownload)
     }
 
     private initializeMiddleware() {
@@ -146,7 +153,7 @@ export class Application {
 
         if (!this.production) {
             this.app.listen(this.port, () => {
-                logger.info(`Listening ${this.production ? "https://api.kartai.de:" : "http://localhost:"}${this.port}.`);
+                logger.info(`Running in development on port ${this.port}.`);
             });
         } else {
             const sslServer = https.createServer({
@@ -155,7 +162,7 @@ export class Application {
             }, this.app)
 
             sslServer.listen(this.port, () => {
-                logger.info(`Listening ${this.production ? "https://api.kartai.de:" : "http://localhost:"}${this.port}.`);
+                logger.info(`Running in production on port ${this.port}.`);
             });
         }
 

@@ -6,12 +6,16 @@ import {app} from "./index";
 import {logger} from "./logger";
 import {Field} from "./types/dbmodel/Field";
 import {generateModelId} from "./utils";
+import {VertexAI} from "@google-cloud/vertexai";
+
 
 export default class CardGenerationService {
 
     static formatInputString(inputText: string): string {
         return inputText.replaceAll("\n", " ")
     }
+
+
 
     static async generateCards(clientId: string, cardTypeId: string, deckId: string, inputText: string, gptVersion: string, openAIKey: string, prompt: string):
         Promise<{ cards: Card[], fieldContents: FieldContent[] } | null> {
